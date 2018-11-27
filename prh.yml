@@ -1,0 +1,26 @@
+version: 1
+rules:
+  - expected: jQuery
+    specs:
+      - from: jquery
+        to: jQuery
+      - from: ＪＱＵＥＲＹ
+        to: jQuery
+
+  - expected: Elascicsearch
+    pattern: ElascicSearch
+
+  - expected: サジェスト
+    pattern: Suggestion
+  - expected: サジェスト
+    pattern: Suggest
+  - expected: サジェスト
+    pattern: suggest
+
+  - expected: 集約
+    pattern: Aggregation
+  - expected: 集約
+    pattern: aggregation
+
+  - expected: 検索
+    pattern: Search

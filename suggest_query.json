@@ -1,0 +1,10 @@
+{
+  "suggest": {
+    "book-suggest" : {
+      "prefix" : "わがはい",
+      "completion" : {
+        "field" : "title_yomi"
+      }
+    }
+  }
+}

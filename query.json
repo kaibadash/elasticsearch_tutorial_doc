@@ -1,0 +1,13 @@
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "title_ja": "我輩"
+          }
+        }
+      ]
+    }
+  }
+}

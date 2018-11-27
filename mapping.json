@@ -1,0 +1,53 @@
+{
+  "settings": {
+    "index": {
+      "analysis": {
+        "tokenizer": {
+          "ja_tokenizer": {
+            "type": "kuromoji_tokenizer"
+          }
+        },
+        "analyzer": {
+          "ja_analyzer": {
+            "type": "custom",
+            "tokenizer": "ja_tokenizer"
+          }
+        }
+      }
+    }
+  },
+  "mappings": {
+    "books": {
+      "dynamic_templates": [
+        {
+          "ja_string": {
+            "match_mapping_type": "string",
+            "match": "*_ja",
+            "mapping": {
+              "type": "text",
+              "analyzer": "ja_analyzer"
+            }
+          }
+        }
+      ],
+      "properties": {
+        "title": {
+          "type": "text",
+          "copy_to": ["title_ja"]
+        },
+        "title_ja": {
+          "type": "text",
+          "store": true
+        },
+        "auther": {
+          "type": "text",
+          "copy_to": ["title_ja"]
+        },
+        "author_ja": {
+          "type": "text",
+          "store": true
+        }
+      }
+    }
+  }
+}
