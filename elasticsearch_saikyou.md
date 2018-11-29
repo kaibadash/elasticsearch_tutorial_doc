@@ -16,12 +16,7 @@ sjis だろうな〜、文字コード変換やだな〜、と思っていたの
 
 これを使って、「青空文庫検索アプリ」を作ろうと目指そうと思います。
 
-### 想定する環境
-
-- 図書館などの PC で動かす想定
-- タッチパネルで不自由な入力を強いられる
-
-### 仕様
+## 仕様
 
 Google をリスペクトしつつ、中を知っている感じの仕様になりますが、以下のようにします。
 
@@ -32,24 +27,25 @@ Google をリスペクトしつつ、中を知っている感じの仕様にな�
   - 吾輩は猫 => 「吾輩は猫である」
   - わがはいはねこ => 「吾輩は猫である」
   - みやざわ => 宮沢賢治の書籍がヒット
-  -  京都 => 「東京都」はヒットしない。
+  - 京都 => 「東京都」はヒットしない。
 - もしかして
   - 吾輩は猫であろ => 「吾輩は猫である」
   - 宮沢賢二 => 「宮沢賢治」
 
-###　設計
+##　設計
 
 仕様を満たすために以下の設計にします。
+業務だと「Googleみたいにして！」って言われることが多いので、ここはちゃんとしておかないと痛い目を見ます。
 
-#### サジェスト
+### サジェスト
 
 - 単純に前方一致させるためにデフォルトの analyser を使う
 - データ名は \*\_suggest とする
 
-#### 検索
+### 検索
 
-- サジェストである程度
-- 「こんにちは東京都」というドキュメントに対して、「京都」でヒットさせたくない
+- サジェストである程度カバーできるはずなので、日本語を意識して検索する
+  - 「こんにちは東京都」という書籍に対して、「京都」でヒットさせたくない
 
 ## 環境構築
 
@@ -62,14 +58,12 @@ docker pull docker.elastic.co/elasticsearch/elasticsearch:6.5.1
 docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:6.5.1
 ```
 
-なんか elasticsearch を pull してきて  
-port 9200 で動かした、というのがわかれば十分です。  
-僕の理解もそんなもんです。
-ちょっと前までは OS を用意し、Java を用意し、 えーとえーとという感じでしたので、いい時代になりました。
+なんか Elasticsearch の docker image を pull してきて
+port 9200 で動かした、というのがわかれば十分です。
 
 ついでに、日本語向けのプラグインを入れます。
 公式の Docker Image には日本語プラグイン設定済みのものがなかったので、
- 職人が手作業で日本語のプラグインを入れちゃいます。
+職人が手作業で日本語のプラグインを入れちゃいます。
 手作業が嫌な人は[こんなかんじで Dockerfile](https://hub.docker.com/r/patorash/elasticsearch-kuromoji/~/dockerfile/)を作ると良いでしょう。
 
 ```sh
@@ -78,7 +72,7 @@ docker ps
 CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                              NAMES
 0d008241f0e9        docker.elastic.co/elasticsearch/elasticsearch:6.5.1   "/usr/local/bin/dock…"   33 seconds ago      Up 32 seconds       0.0.0.0:9200->9200/tcp, 9300/tcp   festive_bhaskara
 
-# コンテナにshでつなぐインストール
+# コンテナにshでつなぐインストール
 $ docker exec -it 0d008241f0e9 sh
 
 sh-4.2# elasticsearch-plugin install analysis-kuromoji
@@ -103,6 +97,85 @@ curl http://localhost:9200/_nodes/plugins\?pretty -X GET | grep kuromoji
 良さそう。
 
 [http://localhost:9200/](http://localhost:9200/) にアクセスするとなんか動いてるっぽい json が出るはずです。
+
+## mapping
+
+サジェストはデフォルトのAnalyzerで良さそうですが、検索は日本語を扱う必要があります。
+
+```json
+TODO: 
+```
+
+
+### 要件を確認していく
+
+#### サジェスト
+
+前方一致でサジェストが得られるか試します。
+
+```suggest_query.json
+{
+  "book_suggest": {
+    "text": "わがはい",
+    "completion": {
+      "field": "title_yomi"
+    }
+  }
+}
+
+```
+
+```sh
+curl http://localhost:9200/aozora/books/_suggest\?pretty -X POST -H "Content-Type: application/json" -d @suggest_query.json
+```
+
+#### 作品タイトル、著者名で検索
+
+今回は日本語の設定をしなかったので、「こん」でも「こんにちは」がヒットし、意図しないものが多くヒットします。
+
+`_search` のエンドポイントにクエリの json を投げつけるだけですが、クエリを考える必要があります。
+プログラムからクエリを投げることを考えつつ、クエリにするとこんな感じでしょうか？
+
+```query.json
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "title": "吾輩は猫である"
+          }
+        },
+        {
+          "match": {
+            "title_yomi": "吾輩は猫である"
+          }
+        },
+        {
+          "match": {
+            "author": "吾輩は猫である"
+          }
+        },
+        {
+          "match": {
+            "author_yomi": "吾輩は猫である"
+          }
+        }
+      ]
+    }
+  }
+}
+
+```
+
+```sh
+curl http://localhost:9200/aozora/books/_search\?pretty -X POST -H "Content-Type: application/json" -d @query.json
+```
+
+漢字ではまずまずですが、ひらがなではあんまりでした。
+
+
+
 
 ## とりあえず index 作ってデータ入れてみる
 
@@ -176,13 +249,13 @@ document 名は books とした。
 ```
 
 最近の Elasticsearch は `Content-Type: application/json` で送る必要があります。
- つけないとその旨のエラーが  得られるので、怖がる必要はありません。
+つけないとその旨のエラーが 得られるので、怖がる必要はありません。
 
 ```
 curl http://localhost:9200/aozora/books/002672\?pretty -X POST -H "Content-Type: application/json" -d '{"title": "吾輩は猫である", "title_yomi": "わがはいはねこである", "author": "夏目漱石", "author_yomi": "なつめそうせき"}'
 ```
 
-id は URL の末尾に指定しています。  
+id は URL の末尾に指定しています。
 RESTful API の流儀ですね。
 
 ```json
@@ -225,73 +298,6 @@ curl http://localhost:9200/aozora/_mapping\?pretty
 ```
 
 よさそう。全部 text で何の面白みもありません。
-
-### 要件を確認していく
-
-#### サジェスト
-
-前方一致でサジェストが得られるか試します。
-
-```suggest_query.json
-{
-  "book_suggest": {
-    "text": "わがはい",
-    "completion": {
-      "field": "title_yomi"
-    }
-  }
-}
-
-```
-
-```sh
-curl http://localhost:9200/aozora/books/_suggest\?pretty -X POST -H "Content-Type: application/json" -d @suggest_query.json
-```
-
-#### 作品タイトル、著者名で検索
-
-今回は日本語の設定をしなかったので、「こん」でも「こんにちは」がヒットし、意図しないものが多くヒットします。
-
-`_search` のエンドポイントにクエリの json を投げつけるだけですが、クエリを考える必要があります。
-プログラムからクエリを投げることを考えつつ、クエリにするとこんな感じでしょうか？
-
-```query.json
-{
-  "query": {
-    "bool": {
-      "should": [
-        {
-          "match": {
-            "title": "吾輩は猫である"
-          }
-        },
-        {
-          "match": {
-            "title_yomi": "吾輩は猫である"
-          }
-        },
-        {
-          "match": {
-            "author": "吾輩は猫である"
-          }
-        },
-        {
-          "match": {
-            "author_yomi": "吾輩は猫である"
-          }
-        }
-      ]
-    }
-  }
-}
-
-```
-
-```sh
-curl http://localhost:9200/aozora/books/_search\?pretty -X POST -H "Content-Type: application/json" -d @query.json
-```
-
-漢字ではまずまずですが、ひらがなではあんまりでした。
 
 ### CSV のデータを全部  挿入する
 
@@ -336,7 +342,7 @@ class Book
   private
 
   def to_json
-    # メタプロするとパラメータの追加に動的に対応できそう
+    # メタプロするとパラメータの追加に動的に対応できそう
     {title: @title, title_yomi: @title_yomi, auther: @author, auther_yomi: @author_yomi}.to_json
   end
 end
@@ -360,6 +366,6 @@ end
 
 ## まとめ
 
-- 日本語の問題は  を除き要求仕様を満たすことができました
-- 「Elasticsearch すげー！」「Google すげー！」ということを実感するはず
+- 日本語の問題は を除き要求仕様を満たすことができました
+- 「Elasticsearch すげー！」「Google すげー！」ということを実感するはず
 - なので「Google みたいにして！」を安易に受けてはいけません
