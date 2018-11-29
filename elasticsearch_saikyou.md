@@ -1,76 +1,84 @@
-# 青空文庫検索サイトの作り方を 1 から丁寧に丁寧に解説してみる
+kaibaと申します。
 
-kaiba と申します。
-業務で Elasticsearch を導入する機会に恵まれ、技術書典で[検索だけじゃない Elasticsearch 入門](https://kaiba.booth.pm/items/1031664)という本を書きました。
-僕も時々リファレンス的に見直すことがあり、良い本だな、とひしひしと感じておりますので、是非読んでみてください。
-[収支報告](https://pokosho.com/b/archives/3251)も是非御覧ください。
+本年はElasticsearch関連でこんなことがありました。
 
-今回は[検索だけじゃない Elasticsearch 入門](https://kaiba.booth.pm/items/1031664)の発展編として、
+- 業務でElasticsearchを導入する機会に恵まれ
+- 技術書典で[検索だけじゃない Elasticsearch 入門](https://kaiba.booth.pm/items/1031664)という本を書き、100冊近く売れ
+-  その他、アウトプットもぼちぼち出して
+- 中の人johtaniさんにも良くしていただきました
+
+Elasticsearch元年になり、Elasticsearchで年を締めくくろうとしております。
+
+今回は[検索だけじゃない Elasticsearch 入門](https://kaiba.booth.pm/items/1031664)に対する発展編として、
 青空文庫検索システムを例に、できる限りわかりやすく書いてみたいと思います。
+この本は、僕も時々リファレンス的に見直すことがあり、なかなか良い本だと思いますので是非読んでみてください。
 
 ## 何を作るか
 
 青空文庫に[作家別作品一覧拡充版：全て(CSV 形式、UTF-8、zip 圧縮）](https://www.aozora.gr.jp/index_pages/person_all.html)というのがありました。
-sjis だろうな〜、文字コード変換やだな〜、と思っていたので、感動しました。
-悪しき ken_all.csv も見習ってほしい。
+sjisだろうな〜、文字コード変換やだな〜、と思っていたので、感動しました。
+悪しきken_all.csvも見習ってほしい。
 
-これを使って、「青空文庫検索アプリ」を作ろうと目指そうと思います。
+これを使って、「青空文庫検索エンジン」を作ろうと目指そうと思います。
 
-### 想定する環境
+## 仕様
 
-- 図書館などの PC で動かす想定
-- タッチパネルで不自由な入力を強いられる
-
-### 仕様
-
-Google をリスペクトしつつ、中を知っている感じの仕様になりますが、以下のようにします。
+Googleをリスペクトしつつ、中を知っている感じの仕様になりますが、以下のようにします。
 
 - サジェストを有効に使って補助したい。ここは単純に前方一致が良い。
-  - わがはい => 「吾輩は猫である」
-  - みやざわ => 「宮沢賢治」
-- 作品タイトル、著者名で検索できる。ここはサジェストがあるので日本語の検索を意識する。
-  - 吾輩は猫 => 「吾輩は猫である」
-  - わがはいはねこ => 「吾輩は猫である」
-  - みやざわ => 宮沢賢治の書籍がヒット
-  -  京都 => 「東京都」はヒットしない。
+  - わがはい =>「吾輩は猫である」
+  - みやざわ =>「宮沢賢治」
 - もしかして
-  - 吾輩は猫であろ => 「吾輩は猫である」
-  - 宮沢賢二 => 「宮沢賢治」
+  - 吾輩は猫であろ =>「吾輩は猫である」
+  - 宮沢賢二 =>「宮沢賢治」
+- 作品タイトル、著者名で検索できる。ここはサジェストがあるので日本語の検索を意識する。
+  - 吾輩は猫 =>「吾輩は猫である」
+  - わがはいはねこ =>「吾輩は猫である」
+  - みやざわ => 宮沢賢治の書籍がヒット
+  - 京都 =>「東京都」はヒットしない。
 
-###　設計
+## 設計
 
 仕様を満たすために以下の設計にします。
+業務だと「Googleみたいにして！」って言われることが多いので、ここはちゃんとしておかないと痛い目を見ます。
 
-#### サジェスト
+### サジェスト
 
-- 単純に前方一致させるためにデフォルトの analyser を使う
-- データ名は \*\_suggest とする
+- 単純に前方一致させるためにデフォルトのanalyserを使う
+- データ名は \*\_サジェストとする
+- completionサジェストerという機能で実現します
 
-#### 検索
+### もしかして
 
-- サジェストである程度
-- 「こんにちは東京都」というドキュメントに対して、「京都」でヒットさせたくない
+- こちらも標準のanalyerで単純に近いものを探します。
+- termサジェストerという機能で実現します
+
+### 検索
+
+- サジェストである程度  カバーできるはずなので、日本語を意識して検索する
+  - 「こんにちは東京都」という書籍に対して、「京都」でヒットさせたくない
 
 ## 環境構築
 
 [公式の Docker Image](https://www.docker.elastic.co/)を使ってみます。
-Docker 知らない人も、怖がらずに。
-いやいや、Docker じゃなくて AWS Elasticsearch Service でやりたいんだ、という方は、[検索だけじゃない Elasticsearch 入門](https://kaiba.booth.pm/items/1031664)をどうぞ！(しつこい)
+Docker知らない人も、怖がらずに。
+いやいや、DockerじゃなくてAWS Elasticsearch Serviceでやりたいんだ、という方は、[検索だけじゃない Elasticsearch 入門](https://kaiba.booth.pm/items/1031664)をどうぞ！(しつこい）
 
 ```sh
 docker pull docker.elastic.co/elasticsearch/elasticsearch:6.5.1
 docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:6.5.1
 ```
 
-なんか elasticsearch を pull してきて  
-port 9200 で動かした、というのがわかれば十分です。  
-僕の理解もそんなもんです。
-ちょっと前までは OS を用意し、Java を用意し、 えーとえーとという感じでしたので、いい時代になりました。
+なんかElasticsearchのdocker imageをpullしてきて
+port 9200で動かした、というのがわかれば十分です。
 
 ついでに、日本語向けのプラグインを入れます。
-公式の Docker Image には日本語プラグイン設定済みのものがなかったので、
- 職人が手作業で日本語のプラグインを入れちゃいます。
+公式のDocker Imageには日本語プラグイン設定済みのものがなかったので、
+職人が手作業で日本語のプラグインを入れちゃいます。
 手作業が嫌な人は[こんなかんじで Dockerfile](https://hub.docker.com/r/patorash/elasticsearch-kuromoji/~/dockerfile/)を作ると良いでしょう。
+僕が用意しても良かったんですが、こちらの方がわかりやすいかな、と思いまして…。
+停止すると挿入したデータは消えちゃいます…。
+このへん、Dockerの勉強にも良いかと。
 
 ```sh
 # コンテナIDを調べる
@@ -78,7 +86,7 @@ docker ps
 CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                              NAMES
 0d008241f0e9        docker.elastic.co/elasticsearch/elasticsearch:6.5.1   "/usr/local/bin/dock…"   33 seconds ago      Up 32 seconds       0.0.0.0:9200->9200/tcp, 9300/tcp   festive_bhaskara
 
-# コンテナにshでつなぐインストール
+# コンテナにshでつなぐインストール
 $ docker exec -it 0d008241f0e9 sh
 
 sh-4.2# elasticsearch-plugin install analysis-kuromoji
@@ -91,7 +99,7 @@ exit
 docker restart 0d008241f0e9
 ```
 
-\_nodes/plugins に GET して、kuromoji の存在を確認します。
+\_nodes/pluginsにGETして、kuromojiの存在を確認します。
 
 ```sh
 curl http://localhost:9200/_nodes/plugins\?pretty -X GET | grep kuromoji
@@ -102,200 +110,120 @@ curl http://localhost:9200/_nodes/plugins\?pretty -X GET | grep kuromoji
 
 良さそう。
 
-[http://localhost:9200/](http://localhost:9200/) にアクセスするとなんか動いてるっぽい json が出るはずです。
+## mapping
 
-## とりあえず index 作ってデータ入れてみる
+どのフィールドをどのように解析するか、の設定をします。
+日本語の設定が不要であれば、Elasticsearchがよしなにやってくれますので、
+ 必須の操作ではありません。
+今回は日本語を使う要件がありますので設定します。
 
-早速、動作確認も兼ねて、データを入れてみます。
+### 挿入するデータ
+
 以下のデータを入れることにします。
 
-| データ名    | 内容               | 例                   |
-| ----------- | ------------------ | -------------------- |
-| id          | 青空文庫の本 ID    | 002672               |
-| title       | タイトル           | 吾輩は猫である       |
-| author      | 著者名             | 夏目漱石             |
-| title_yomi  | タイトル(よみがな) | わがはいはねこである |
-| author_yomi | 著者名(よみがな)   | なつめそうせき       |
+| データ名       | 内容                     | 例                   |
+| -------------- | ------------------------ | -------------------- |
+| id             | 青空文庫の本ID          | 002672               |
+| title          | タイトル                 | 吾輩は猫である       |
+| author         | 著者名                   | 夏目漱石             |
+| title_yomi     | タイトル（よみがな）       | わがはいはねこである |
+| author_yomi    | 著者名（よみがな）         | なつめそうせき       |
+| \*\_ja         | 上記の日本語検索用データ |                      |
+| \*\_サジェストion | 上記のサジェスト用データ |                      |
 
-`id` は一意の ID でこれをキーに document を更新します。
+`id` は一意のIDでこれをキーにdocumentを更新します。
 
-### index 作成
+### mapping
 
-aozora という名前にしました。
+上記のデータを挿入するための設定です。
 
-```sh
-curl http://localhost:9200/aozora -X PUT
-```
-
-```json
-{ "acknowledged": true, "shards_acknowledged": true, "index": "books" }
-```
-
-よさそう。
-
-一応 get しておく。pretty をつけると見やすくなるよ。
-
-```sh
-curl http://localhost:9200/aozora\?pretty
-```
-
-```json
+```mapping.json
 {
-  "books": {
-    "aliases": {},
-    "mappings": {},
-    "settings": {
-      "index": {
-        "creation_date": "1543144973728",
-        "number_of_shards": "5",
-        "number_of_replicas": "1",
-        "uuid": "N_RoGBW8SwGzvNSiCEqdXA",
-        "version": {
-          "created": "6050199"
+  "settings": {
+    "index": {
+      "analysis": {
+        "tokenizer": {
+          "ja_tokenizer": {
+            "type": "kuromoji_tokenizer"
+          }
         },
-        "provided_name": "aozora"
+        "analyzer": {
+          "ja_analyzer": {
+            "type": "custom",
+            "tokenizer": "ja_tokenizer"
+          }
+        }
+      }
+    }
+  },
+  "mappings": {
+    "books": {
+      "dynamic_templates": [
+        {
+          "ja_string": {
+            "match_mapping_type": "string",
+            "match": "*_ja",
+            "mapping": {
+              "type": "text",
+              "analyzer": "ja_analyzer"
+            }
+          }
+        },
+        {
+          "yomi_string": {
+            "match_mapping_type": "string",
+            "match": "*_suggestion",
+            "mapping": {
+              "type": "completion"
+            }
+          }
+        }
+      ],
+      "properties": {
+        "title": {
+          "type": "text",
+          "copy_to": ["title_ja", "title_suggestion"]
+        },
+        "title_ja": {
+          "type": "text",
+          "store": true
+        },
+        "title_yomi": {
+          "type": "text",
+          "copy_to": ["title_yomi_suggestion"]
+        },
+        "author": {
+          "type": "text",
+          "copy_to": ["author_ja", "author_suggestion"]
+        },
+        "author_ja": {
+          "type": "text",
+          "store": true
+        },
+        "author_yomi": {
+          "type": "text",
+          "copy_to": ["author_yomi_suggestion"]
+        }
       }
     }
   }
 }
 ```
 
-よさそう。
+- title, authorをコピーしてtitle_ja, author_jaを作成しています。
+- \*\_jaはcustum analyzerを定義し、tokenizerに `kuromoji_tokenizer` を使用しています。
 
-### document 挿入
-
-document 名は books とした。
-
-```json
-{
-  "title": "吾輩は猫である",
-  "title_yomi": "わがはいはねこである",
-  "author": "夏目漱石",
-  "author_yomi": "なつめそうせき"
-}
-```
-
-最近の Elasticsearch は `Content-Type: application/json` で送る必要があります。
- つけないとその旨のエラーが  得られるので、怖がる必要はありません。
-
-```
-curl http://localhost:9200/aozora/books/002672\?pretty -X POST -H "Content-Type: application/json" -d '{"title": "吾輩は猫である", "title_yomi": "わがはいはねこである", "author": "夏目漱石", "author_yomi": "なつめそうせき"}'
-```
-
-id は URL の末尾に指定しています。  
-RESTful API の流儀ですね。
-
-```json
-{
-  "_index": "aozora",
-  "_type": "books",
-  "_id": "DiKoSmcBGDjlSKvodF06",
-  "_version": 1,
-  "result": "created",
-  "_shards": {
-    "total": 2,
-    "successful": 1,
-    "failed": 0
-  },
-  "_seq_no": 0,
-  "_primary_term": 1
-}
-```
-
-よさそう。
-
-mapping 情報を見ておく。
-
-```
-curl http://localhost:9200/aozora/_mapping\?pretty
-```
-
-```json
-// 中略
-"title" : {
-  "type" : "text",
-  "fields" : {
-    "keyword" : {
-      "type" : "keyword",
-      "ignore_above" : 256
-    }
-  }
-},
-// 中略
-```
-
-よさそう。全部 text で何の面白みもありません。
-
-### 要件を確認していく
-
-#### サジェスト
-
-前方一致でサジェストが得られるか試します。
-
-```suggest_query.json
-{
-  "book_suggest": {
-    "text": "わがはい",
-    "completion": {
-      "field": "title_yomi"
-    }
-  }
-}
-
-```
+設定を反映します。
 
 ```sh
-curl http://localhost:9200/aozora/books/_suggest\?pretty -X POST -H "Content-Type: application/json" -d @suggest_query.json
+curl http://localhost:9200/aozora\?pretty -X PUT -H "Content-Type: application/json" -d @mapping.json
 ```
 
-#### 作品タイトル、著者名で検索
+## CSVの全データを挿入する
 
-今回は日本語の設定をしなかったので、「こん」でも「こんにちは」がヒットし、意図しないものが多くヒットします。
+### プログラム
 
-`_search` のエンドポイントにクエリの json を投げつけるだけですが、クエリを考える必要があります。
-プログラムからクエリを投げることを考えつつ、クエリにするとこんな感じでしょうか？
-
-```query.json
-{
-  "query": {
-    "bool": {
-      "should": [
-        {
-          "match": {
-            "title": "吾輩は猫である"
-          }
-        },
-        {
-          "match": {
-            "title_yomi": "吾輩は猫である"
-          }
-        },
-        {
-          "match": {
-            "author": "吾輩は猫である"
-          }
-        },
-        {
-          "match": {
-            "author_yomi": "吾輩は猫である"
-          }
-        }
-      ]
-    }
-  }
-}
-
-```
-
-```sh
-curl http://localhost:9200/aozora/books/_search\?pretty -X POST -H "Content-Type: application/json" -d @query.json
-```
-
-漢字ではまずまずですが、ひらがなではあんまりでした。
-
-### CSV のデータを全部  挿入する
-
-雑にもほどがありますが…。
+雑にもほどがありますが、GemなしのRubyで書いてみました。
 
 ```ruby
 require "csv"
@@ -324,6 +252,7 @@ class Book
   end
 
   def post_index
+    # NOTE: IDはURLの末尾に指定します。RESTですね。
     uri = URI.parse("#{ENDPOINT}/books/#{@id}")
     http = Net::HTTP.new(uri.host, uri.port)
     req = Net::HTTP::Post.new(uri.request_uri)
@@ -336,14 +265,16 @@ class Book
   private
 
   def to_json
-    # メタプロするとパラメータの追加に動的に対応できそう
-    {title: @title, title_yomi: @title_yomi, auther: @author, auther_yomi: @author_yomi}.to_json
+    # メタプロするとパラメータの追加に動的に対応できそう。メタプロは用法用量を正しく(略)
+    {title: @title, title_yomi: @title_yomi, author: @author, author_yomi: @author_yomi}.to_json
   end
 end
 
+# NOTE: CSVを同じディレクトリにおいてね!
 # FIXME: 本来であれば一括で挿入(bulk insert)できるのでそうした方が速いよ！
 CSV.foreach("list_person_all_extended_utf8.csv") do |line|
   next unless line[INDEX_ID] =~ /^[0-9]+/
+  p line[INDEX_TITLE]
   Book.new(
         line[INDEX_ID],
         line[INDEX_TITLE],
@@ -354,12 +285,190 @@ CSV.foreach("list_person_all_extended_utf8.csv") do |line|
 end
 ```
 
-#### もしかして
+## 要件を確認していく
 
-クエリに近いタイトル、著者名を検索します。
+### サジェスト
+
+前方一致でサジェストが得られるか試します。
+
+```suggest_query.json
+{
+  "suggest": {
+    "book_suggest_title": {
+      "prefix": "わがは",
+      "completion": {
+        "field": "title_yomi"
+      }
+    },
+    "book_suggest_author": {
+      "prefix": "わがは",
+      "completion": {
+        "field": "author_yomi"
+      }
+    }
+  }
+}
+```
+
+タイトル、著者のよみがなから探します。
+今回はauthorでヒットしませんが、実際のクエリを意識してこのようにしています。
+
+```sh
+curl http://localhost:9200/aozora/books/_search\?pretty -X POST -H "Content-Type: application/json" -d @suggest_query.json
+```
+
+```json
+  "suggest" : {
+    "book_suggest_author" : [
+      {
+        "text" : "わがは",
+        "offset" : 0,
+        "length" : 3,
+        "options" : [ ]
+      }
+    ],
+    "book_suggest_title" : [
+      {
+        "text" : "わがは",
+        "offset" : 0,
+        "length" : 3,
+        "options" : [
+          {
+            "text" : "『わがはいはねこである』げへんじじょ",
+            "_index" : "aozora",
+            "_type" : "books",
+            "_id" : "002672",
+            "_score" : 1.0,
+            "_source" : {
+              "title" : "『吾輩は猫である』下篇自序",
+```
+
+良さそう！
+
+### もしかして
+
+```term_suggest_query.json
+{
+  "suggest": {
+    "suggest_title_yomi": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "title_yomi_suggestion"
+      }
+    },
+    "suggest_title": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "title_suggestion"
+      }
+    },
+    "suggest_author_yomi": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "author_yomi_suggestion"
+      }
+    },
+    "suggest_author": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "author_suggestion"
+      }
+    }
+  }
+}
+```
+
+作者名読みのサジェストを得る例です。
+今回はサジェスト_author_yomi以外でヒットしませんが、実際のクエリを意識してこのようにしています。
+
+```sh
+curl http://localhost:9200/aozora/books/_search\?pretty -X POST -H "Content-Type: application/json" -d @term_suggest_query.json
+```
+
+```
+    "suggest_author_yomi" : [
+      {
+        "text" : "なつめそうせい",
+        "offset" : 0,
+        "length" : 7,
+        "options" : [
+          {
+            "text" : "なつめそうせき",
+            "score" : 0.85714287,
+            "freq" : 105
+          }
+        ]
+      }
+    ],
+```
+
+よさそう！
+
+#### 作品タイトル、著者名で検索
+
+今回は日本語の設定をしなかったので、「こん」でも「こんにちは」がヒットし、意図しないものが多くヒットします。
+
+`_search` のエンドポイントにクエリのjsonを投げつけるだけですが、クエリを考える必要があります。
+プログラムからクエリを投げることを考えつつ、クエリにするとこんな感じでしょうか？
+
+```query.json
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "title": "吾輩"
+          }
+        },
+        {
+          "match": {
+            "title_yomi": "吾輩"
+          }
+        },
+        {
+          "match": {
+            "author": "吾輩"
+          }
+        },
+        {
+          "match": {
+            "author_yomi": "吾輩"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+```sh
+curl http://localhost:9200/aozora/books/_search\?pretty -X POST -H "Content-Type: application/json" -d @query.json
+```
+
+```json
+  "hits" : {
+    "total" : 63,
+    "max_score" : 10.369913,
+    "hits" : [
+      {
+        "_index" : "aozora",
+        "_type" : "books",
+        "_id" : "058086",
+        "_score" : 10.369913,
+        "_source" : {
+          "title" : "我輩の智識吸収法",
+          "title_yomi" : "わがはいのちしききゅうしゅうほう",
+          "author" : "大隈重信",
+          "author_yomi" : "おおくましげのぶ"
+        }
+      },
+```
+
+よさそう。
 
 ## まとめ
 
-- 日本語の問題は  を除き要求仕様を満たすことができました
-- 「Elasticsearch すげー！」「Google すげー！」ということを実感するはず
-- なので「Google みたいにして！」を安易に受けてはいけません
+- 検索もサジェストも難しい！
+- Googleみたいに！　って絶対言われるから、ちゃんと調査、設計して合意を取るのが重要かも。
+- ElasticsearchもGoogleもすごい！

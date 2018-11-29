@@ -1,0 +1,28 @@
+{
+  "suggest": {
+    "suggest_title_yomi": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "title_yomi_suggestion"
+      }
+    },
+    "suggest_title": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "title_suggestion"
+      }
+    },
+    "suggest_author_yomi": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "author_yomi_suggestion"
+      }
+    },
+    "suggest_author": {
+      "text": "なつめそうせい",
+      "term": {
+        "field": "author_suggestion"
+      }
+    }
+  }
+}

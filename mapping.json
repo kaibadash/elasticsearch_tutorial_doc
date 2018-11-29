@@ -28,24 +28,41 @@
               "analyzer": "ja_analyzer"
             }
           }
+        },
+        {
+          "yomi_string": {
+            "match_mapping_type": "string",
+            "match": "*_suggestion",
+            "mapping": {
+              "type": "completion"
+            }
+          }
         }
       ],
       "properties": {
         "title": {
           "type": "text",
-          "copy_to": ["title_ja"]
+          "copy_to": ["title_ja", "title_suggestion"]
         },
         "title_ja": {
           "type": "text",
           "store": true
         },
-        "auther": {
+        "title_yomi": {
           "type": "text",
-          "copy_to": ["title_ja"]
+          "copy_to": ["title_yomi_suggestion"]
+        },
+        "author": {
+          "type": "text",
+          "copy_to": ["author_ja", "author_suggestion"]
         },
         "author_ja": {
           "type": "text",
           "store": true
+        },
+        "author_yomi": {
+          "type": "text",
+          "copy_to": ["author_yomi_suggestion"]
         }
       }
     }

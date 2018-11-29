@@ -1,9 +1,15 @@
 {
   "suggest": {
-    "book-suggest" : {
-      "prefix" : "わがはい",
-      "completion" : {
-        "field" : "title_yomi"
+    "book_suggest_title": {
+      "prefix": "わがは",
+      "completion": {
+        "field": "title_yomi_suggestion"
+      }
+    },
+    "book_suggest_author": {
+      "prefix": "わがは",
+      "completion": {
+        "field": "author_yomi_suggestion"
       }
     }
   }
