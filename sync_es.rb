@@ -37,13 +37,14 @@ class Book
 
   def to_json
     # メタプロするとパラメータの追加に動的に対応できそう
-    {title: @title, title_yomi: @title_yomi, auther: @author, auther_yomi: @author_yomi}.to_json
+    {title: @title, title_yomi: @title_yomi, author: @author, author_yomi: @author_yomi}.to_json
   end
 end
 
 # 本来であれば一括で挿入(bulk insert)できるのでそうした方が速い
 CSV.foreach("list_person_all_extended_utf8.csv") do |line|
   next unless line[INDEX_ID] =~ /^[0-9]+/
+  p line[INDEX_TITLE]
   Book.new(
         line[INDEX_ID],
         line[INDEX_TITLE],

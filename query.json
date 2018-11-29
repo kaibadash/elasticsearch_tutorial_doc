@@ -6,6 +6,11 @@
           "match": {
             "title_ja": "我輩"
           }
+        },
+        {
+          "match": {
+            "author_ja": "我輩"
+          }
         }
       ]
     }
